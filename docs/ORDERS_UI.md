@@ -20,6 +20,8 @@ Windows용 실행 진입점은 파일 잠금으로 중복 실행을 막습니다
 
 ## 연결과 송신
 
+처음 연결할 때는 [Client ID·Client Secret 준비 및 저장 방법](../README.md#smartstore-connection)을 따라 진행하세요. 애플리케이션 ID·시크릿 확인, API호출 IP 등록, 화면 입력과 저장, 저장된 연결 확인, 첫 주문 수집까지 순서대로 안내합니다.
+
 UI의 연결 설정에서 Client ID, Client Secret을 입력합니다. 본인 스토어 SELF 인증의 판매자 계정 ID는 비웁니다. 이 값은 프로젝트 `.env`에 저장되며 읽기 API는 키를 반환하지 않습니다. API 허용 IP와 주문 권한은 네이버 커머스API센터 설정에 따라 별도 확인해야 합니다.
 
 송장은 UI의 `실제 송장 송신 허용`을 켠 뒤 업로드 검토와 송신 확인을 거쳐 실행합니다. 이 UI의 송장 권한은 별도 DB 설정이며 **기존 상품관리 MCP의 `KEIC_ALLOW_MUTATIONS=false`를 변경하지 않습니다.**
