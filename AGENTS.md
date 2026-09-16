@@ -5,7 +5,9 @@ This file is the technical operating guide for coding agents working in this rep
 ## Project identity
 
 - Product name: `Korea E-commerce Integrated Channel MCP`
-- Repository and distribution: `korea-ecommerce-integrated-channel-mcp`
+- Repository: `smartstore-order-desk`
+- Distribution: `korea-ecommerce-integrated-channel-mcp`
+- Order UI documentation: `docs/ORDERS_UI.md`
 - Python package: `korea_ecommerce_mcp`
 - Console command: `korea-ecommerce-integrated-channel-mcp`
 - Environment prefix: `KEIC_`

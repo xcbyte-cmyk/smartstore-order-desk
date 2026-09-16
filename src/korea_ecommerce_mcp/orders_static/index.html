@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>주문 워크스페이스 · 스마트스토어</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="/"><span class="brand-mark">O<span></span></span><div>ORDER DESK<small>주문 워크스페이스</small></div></a>
+  <div class="workspace"><span class="store-icon">N</span><div>스마트스토어<small>판매 운영 · 로컬 워크스페이스</small></div></div>
+  <div class="nav-label">WORKSPACE</div>
+  <nav aria-label="주요 메뉴">
+    <button class="nav active" data-view="orders"><span>▤</span>주문 관리<span class="nav-count" id="nav-count">0</span></button>
+    <button class="nav" data-view="invoices"><span>↥</span>송장 업로드·송신</button>
+    <button class="nav" data-view="history"><span>◷</span>처리 내역</button>
+  </nav>
+  <div class="sidebar-bottom"><div class="local-dot">이 PC에 데이터 저장</div><p>브라우저를 닫아도 서버가 실행 중이면<br>설정한 주기로 주문을 수집합니다.</p><button class="nav" id="settings-side"><span>⚙</span>연결 설정</button></div>
+</aside>
+<div class="shell">
+  <header class="topbar"><div class="breadcrumb">판매 운영 <span>/</span> <strong id="breadcrumb">주문 관리</strong></div><div class="top-right"><span id="today"></span><span class="divider"></span><span class="connection-pill" id="connection-status">연결 확인 중</span><button class="avatar" id="settings-top" aria-label="연결 설정 열기">N</button></div></header>
+  <main>
+    <section class="page-heading"><div><div class="eyebrow">SMARTSTORE OPERATIONS</div><h1 id="page-title">주문 관리</h1><p id="page-description">주문 수집부터 발주서, 송장 송신까지 한곳에서 처리하세요.</p></div><button class="button primary" id="collect-top"><span>↻</span> 지금 주문 수집</button></section>
+    <div class="connection-banner" id="connection-banner"><div class="banner-icon">↗</div><div><strong>스마트스토어를 연결하면 주문이 모이기 시작해요.</strong><p>네이버 커머스 API 정보를 한 번 등록하고, 반복 작업을 줄이세요.</p></div><button class="button" id="connect-banner">스마트스토어 연결 <span>→</span></button></div>
+    <div class="error-banner hidden" id="error-banner" role="alert"></div>
+    <div id="orders-view" class="view">
+      <section class="flow-grid" aria-label="주문 처리 단계">
+        <article class="flow-card"><div class="card-top"><span class="step-number">01</span><span class="chip" id="auto-badge">연결 대기</span></div><h2>시간마다 자동 수집</h2><p>새 주문과 변경된 상태를 알아서 가져옵니다.</p><div class="flow-bottom"><button class="text-button" id="schedule-open">1시간마다 <span>⌄</span></button><label class="switch"><input type="checkbox" id="auto-toggle" aria-label="자동 주문 수집"><span></span></label></div><small id="next-run">API 연결 후 수집을 시작합니다.</small></article>
+        <article class="flow-card"><div class="card-top"><span class="step-number">02</span><span class="file-tag">XLSX</span></div><h2>발주서 다운로드</h2><p>필요한 주문을 선택해 엑셀로 내려받으세요.</p><div class="flow-bottom"><span class="muted"><strong id="selected-card">0</strong>건 선택됨</span><button class="button small" id="export-card">다운로드 <span>↓</span></button></div><small>다운로드는 주문 상태를 변경하지 않습니다.</small></article>
+        <article class="flow-card"><div class="card-top"><span class="step-number">03</span><span class="file-tag">UPLOAD</span></div><h2>송장 업로드·송신</h2><p>송장 엑셀을 확인하고 스마트스토어에 보냅니다.</p><div class="flow-bottom"><span class="muted">검토 후 일괄 송신</span><button class="button small" id="invoice-go">파일 업로드 <span>↥</span></button></div><small>주문별 처리 결과를 확인할 수 있습니다.</small></article>
+      </section>
+      <section class="metrics"><div><span>수집된 상품주문</span><strong id="metric-all">0 <small>건</small></strong></div><div><span>출고 대기</span><strong id="metric-wait">0 <small>건</small></strong></div><div><span>송장 반영 확인</span><strong id="metric-sent">0 <small>건</small></strong></div><div><span>확인 필요</span><strong id="metric-error">0 <small>건</small></strong></div><div class="last-sync"><span>마지막 수집 완료</span><strong id="last-success">아직 수집 전</strong></div></section>
+      <section class="panel">
+        <div class="panel-heading"><div><h2>주문 목록 <span id="list-total">0</span></h2><p>상품주문번호 기준으로 중복 없이 관리합니다.</p></div><button class="text-button" id="recollect">기간 재수집 ↗</button></div>
+        <div class="filters"><div class="tabs" role="group" aria-label="주문 상태 필터"><button class="tab active" data-filter="all">전체</button><button class="tab" data-filter="waiting">출고 대기</button><button class="tab" data-filter="shipped">배송 중·완료</button><button class="tab" data-filter="attention">확인 필요</button></div><div class="search"><span>⌕</span><input id="search" placeholder="주문번호, 상품명, 수취인 검색" aria-label="주문 검색"></div></div>
+        <div class="table-wrap"><table><thead><tr><th class="check-cell"><input type="checkbox" id="select-all" aria-label="현재 페이지 전체 선택"></th><th>상품주문번호 / 결제일</th><th>상품 / 옵션</th><th>수량</th><th>수취인</th><th>주문 상태</th><th>송장 처리</th></tr></thead><tbody id="order-body"></tbody></table>
+          <div class="empty" id="orders-empty"><div class="empty-art"><span>▤</span><i>+</i></div><h3>처리할 주문을 한눈에</h3><p>스마트스토어를 연결하고 첫 주문을 수집해 보세요.<br>수집한 주문은 이곳에서 선택하고 발주서로 내려받을 수 있어요.</p><button class="button" id="empty-action">연결 설정 열기 <span>→</span></button></div>
+        </div>
+        <div class="table-footer"><span id="selection-text">선택한 주문 0건</span><div class="pagination"><button class="button small" id="prev-page" aria-label="이전 페이지">←</button><span id="page-number">1 / 1</span><button class="button small" id="next-page" aria-label="다음 페이지">→</button></div><button class="button small" id="export-bottom">선택 발주서 다운로드 ↓</button></div>
+      </section>
+    </div>
+    <div id="invoices-view" class="view hidden">
+      <section class="panel invoice-panel"><div class="panel-heading"><div><div class="eyebrow">STEP 03</div><h2>송장 엑셀 업로드</h2><p>상품주문번호 · 택배사 · 송장번호 3개 열을 입력해 주세요.</p></div><a class="button" href="/api/invoices/template" download>엑셀 양식 다운로드 ↓</a></div>
+        <label class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="송장 엑셀 파일 선택"><input type="file" id="invoice-file" accept=".xlsx" hidden><span class="upload-icon">↥</span><strong>송장 엑셀 파일을 여기에 놓아 주세요</strong><span>또는 클릭해서 파일 선택</span><small>.xlsx · 최대 5MB · 한 번에 1,000행</small></label>
+        <div class="upload-tips"><span>① 양식에 송장 입력</span><span>→</span><span>② 주문 매칭·오류 확인</span><span>→</span><span>③ 확인 후 네이버 송신</span></div>
+        <div class="subtle-note">상품주문번호와 송장번호는 <strong>텍스트 형식</strong>으로 입력해 주세요. 발주 미확인 주문은 스마트스토어에서 발주 확인 후 수집해야 송신할 수 있습니다.</div>
+      </section>
+      <section class="panel hidden" id="preview-panel"><div class="panel-heading"><div><h2>송신 전 검토 <span id="preview-count"></span></h2><p id="preview-summary"></p></div><span class="chip" id="file-name"></span></div><div class="table-wrap"><table><thead><tr><th>행</th><th>상품주문번호</th><th>택배사</th><th>송장번호</th><th>검토 결과</th></tr></thead><tbody id="invoice-body"></tbody></table></div><div class="send-footer"><p id="send-note">오류 행은 제외하고 정상 행만 송신합니다.</p><button class="button primary" id="send-open">정상 행 송신하기 →</button></div></section>
+      <section class="panel"><div class="panel-heading"><div><h2>송장 처리 결과</h2><p>네이버 성공 응답과 실제 주문 상세의 반영 확인을 구분해 표시합니다.</p></div><button class="button small" id="reconcile">상태 재조회 ↻</button></div><div class="table-wrap"><table><thead><tr><th>상품주문번호</th><th>택배사 / 송장번호</th><th>처리 상태</th><th>상세</th></tr></thead><tbody id="shipment-body"></tbody></table></div><p class="simple-empty" id="shipments-empty">아직 송신한 송장이 없습니다.</p></section>
+    </div>
+    <div id="history-view" class="view hidden"><section class="panel"><div class="panel-heading"><div><h2>최근 처리 내역</h2><p>주문 수집, 파일 다운로드, 송신 작업의 최근 30개 기록입니다.</p></div></div><div id="history-list"></div><p class="simple-empty" id="history-empty">첫 작업을 실행하면 기록이 여기에 표시됩니다.</p></section></div>
+    <footer class="page-footer"><span><span class="green-dot"></span> 내 PC에서 실행 중</span><span>스마트스토어 전용 · 한국 시간 기준</span></footer>
+  </main>
+</div>
+<dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><div><div class="eyebrow">CONNECTION</div><h2>스마트스토어 연결</h2></div><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="dialog-description">네이버 커머스 API센터에서 발급받은 정보를 입력해 주세요. 입력한 키는 이 PC의 설정 파일에 저장됩니다.</p><label class="field">Client ID<input id="client-id" autocomplete="off" placeholder="Client ID 입력"></label><label class="field">Client Secret<input id="client-secret" type="password" autocomplete="new-password" placeholder="Client Secret 입력"></label><p class="field-help" id="credentials-help">저장된 키는 화면에 다시 표시하지 않습니다.</p><label class="field">판매자 계정 ID <span class="muted">선택</span><input id="account-id" autocomplete="off" placeholder="본인 스토어 SELF 인증은 비워 두세요"></label><label class="checkbox-label"><input type="checkbox" id="dispatch-enabled"><span><strong>이 화면에서 실제 송장 송신 허용</strong><small>업로드 검토 후 ‘송신’ 버튼을 눌렀을 때만 발송 처리합니다.</small></span></label><p class="inline-error" id="settings-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button" id="connection-test">저장된 연결 확인</button><button type="submit" class="button primary">연결 정보 저장</button></div></form></dialog>
+<dialog id="schedule-dialog"><form id="schedule-form"><div class="dialog-heading"><h2>자동 수집 설정</h2><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><label class="field">수집 주기<select id="interval"><option value="30">30분마다</option><option value="60">1시간마다</option><option value="120">2시간마다</option><option value="180">3시간마다</option><option value="360">6시간마다</option></select></label><label class="checkbox-label"><input type="checkbox" id="schedule-enabled"><span>자동 수집 켜기</span></label><p class="dialog-description">서버가 실행 중인 동안 수집합니다. PC가 꺼져 있거나 절전 상태이면 중단되며, 다시 실행하면 마지막 수집 시점부터 이어집니다.</p><div class="dialog-actions"><button type="submit" class="button primary">설정 저장</button></div></form></dialog>
+<dialog id="recollect-dialog"><form id="recollect-form"><div class="dialog-heading"><h2>기간 재수집</h2><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="dialog-description">선택 기간에 변경된 주문을 다시 가져옵니다. 기존 주문은 중복 추가되지 않고 갱신됩니다.</p><label class="field">변경 내역 조회 기간<select id="lookback"><option value="1">최근 1일</option><option value="3">최근 3일</option><option value="7">최근 7일</option><option value="30">최근 30일</option></select></label><div class="dialog-actions"><button type="submit" class="button primary">재수집 시작</button></div></form></dialog>
+<dialog id="send-dialog"><div class="dialog-heading"><h2>송장을 송신할까요?</h2><button class="icon-button close-dialog" aria-label="닫기">×</button></div><p id="confirm-text" class="dialog-description"></p><div class="subtle-note">송신 직전에 주문 상태를 다시 확인합니다. 성공한 주문은 네이버에서 발송 처리됩니다.</div><div class="dialog-actions"><button class="button close-dialog">돌아가기</button><button class="button primary" id="send-confirm">확인하고 송신</button></div></dialog>
+<dialog id="detail-dialog"><div class="dialog-heading"><h2>주문 상세</h2><button class="icon-button close-dialog" aria-label="닫기">×</button></div><dl id="order-detail"></dl></dialog>
+<div id="toast" role="status" aria-live="polite" class="toast hidden"></div>
+</body></html>

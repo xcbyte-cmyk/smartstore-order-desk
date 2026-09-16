@@ -6,3 +6,18 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 dist/
+orders-ui.lock
+*.log
+
+# Local credentials, databases and exports
+.env.*
+!.env.example
+*.sqlite3-*
+*.db
+*.db-*
+*.xlsx
+*.csv
+*.pem
+*.key
+work/
+outputs/
