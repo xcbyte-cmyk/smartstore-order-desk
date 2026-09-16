@@ -7,7 +7,7 @@ import contextlib
 import os
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -32,6 +32,12 @@ from korea_ecommerce_mcp.orders_core import (
     public_error,
     workbook_bytes,
 )
+from korea_ecommerce_mcp.orders_schedule import (
+    SCHEDULE_LABEL,
+    SCHEDULE_VERSION,
+    is_collection_slot,
+    next_collection,
+)
 
 STATIC = Path(__file__).with_name("orders_static")
 
@@ -40,21 +46,31 @@ def create_app(db_path=None, settings_factory=Settings, api_factory=NaverOrders,
     db = OrderDB(db_path or os.environ.get("KEIC_ORDERS_DATABASE_PATH", "orders_workspace.sqlite3"))
     service = OrderService(db, settings_factory, api_factory)
     csrf = secrets.token_urlsafe(32)
-    if db.get("next_run") is None:
-        db.set("next_run", (now() + timedelta(hours=1)).isoformat())
+    if db.get("schedule_version") != SCHEDULE_VERSION:
+        db.set("schedule_version", SCHEDULE_VERSION)
+        db.set("next_run", next_collection(now()).isoformat())
+        db.set("auto_enabled", True)
+    elif db.get("next_run") is None:
+        db.set("next_run", next_collection(now()).isoformat())
 
     async def scheduled_loop():
         while True:
-            settings = settings_factory()
-            if (
-                db.get("auto_enabled", True)
-                and settings.naver_client_id
-                and settings.naver_client_secret
-                and not service.lock.locked()
-                and now() >= datetime.fromisoformat(db.get("next_run"))
-            ):
-                with contextlib.suppress(ValueError):
-                    await service.collect()
+            current = now()
+            due = datetime.fromisoformat(db.get("next_run"))
+            if current >= due:
+                in_slot = is_collection_slot(current, due)
+                if not in_slot or not service.lock.locked():
+                    # Claim before collecting: failures/restarts cannot repeat this slot.
+                    db.set("next_run", next_collection(current).isoformat())
+                    settings = settings_factory()
+                    if (
+                        in_slot
+                        and db.get("auto_enabled", True)
+                        and settings.naver_client_id
+                        and settings.naver_client_secret
+                    ):
+                        with contextlib.suppress(ValueError):
+                            await service.collect()
             await asyncio.sleep(5)
 
     @asynccontextmanager
@@ -85,7 +101,7 @@ def create_app(db_path=None, settings_factory=Settings, api_factory=NaverOrders,
                 "account_id": settings.naver_account_id or "",
                 "busy": service.busy,
                 "auto_enabled": db.get("auto_enabled", True),
-                "interval": db.get("interval", 60),
+                "schedule_label": SCHEDULE_LABEL,
                 "dispatch_enabled": db.get("dispatch_enabled", False),
                 "last_success": db.get("last_success"),
                 "last_error": db.get("last_error", ""),
@@ -105,13 +121,14 @@ def create_app(db_path=None, settings_factory=Settings, api_factory=NaverOrders,
 
     async def schedule(request):
         data = await request.json()
-        interval, enabled = data.get("interval"), data.get("enabled")
-        if interval not in [30, 60, 120, 180, 360] or type(enabled) is not bool:
-            raise ValueError("수집 주기 설정을 확인해 주세요.")
-        db.set("interval", interval)
+        enabled = data.get("enabled")
+        if type(enabled) is not bool:
+            raise ValueError("자동 수집 설정을 확인해 주세요.")
         db.set("auto_enabled", enabled)
-        db.set("next_run", (now() + timedelta(minutes=interval)).isoformat())
-        db.event("info", f"자동 수집 {'켜짐' if enabled else '꺼짐'} · {interval}분 간격")
+        # Preserve the claimed slot when a user toggles during 18:00.
+        if datetime.fromisoformat(db.get("next_run")) < now():
+            db.set("next_run", next_collection(now()).isoformat())
+        db.event("info", f"자동 수집 {'켜짐' if enabled else '꺼짐'} · {SCHEDULE_LABEL}")
         return JSONResponse({"ok": True})
 
     async def connection(request):

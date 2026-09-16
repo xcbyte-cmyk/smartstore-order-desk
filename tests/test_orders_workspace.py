@@ -1,6 +1,6 @@
 import io
 import threading
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import httpx
 import pytest
@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from korea_ecommerce_mcp.config import Settings
 from korea_ecommerce_mcp.orders_core import (
+    KST,
     NaverOrders,
     OrderDB,
     OrderService,
@@ -17,6 +18,11 @@ from korea_ecommerce_mcp.orders_core import (
     now,
     parse_invoices,
     workbook_bytes,
+)
+from korea_ecommerce_mcp.orders_schedule import (
+    SCHEDULE_VERSION,
+    is_collection_slot,
+    next_collection,
 )
 from korea_ecommerce_mcp.orders_web import create_app
 
@@ -253,21 +259,22 @@ def test_schedule_settings_survive_restart(tmp_path):
     path = tmp_path / "schedule.sqlite3"
     with TestClient(create_app(path, settings, FakeAPI, scheduler=False)) as client:
         headers = {"x-csrf-token": client.get("/api/state").json()["csrf"]}
-        result = client.post(
-            "/api/schedule", json={"enabled": True, "interval": 120}, headers=headers
-        )
+        result = client.post("/api/schedule", json={"enabled": True}, headers=headers)
         assert result.status_code == 200
         expected = client.get("/api/state").json()["next_run"]
     with TestClient(create_app(path, settings, FakeAPI, scheduler=False)) as client:
         data = client.get("/api/state").json()
-        assert data["interval"] == 120
+        assert data["schedule_label"] == "토~목 오후 6시 · 금요일 제외"
         assert data["next_run"] == expected
 
 
-def test_due_schedule_collects_without_browser_request(tmp_path):
+def test_due_schedule_collects_without_browser_request(tmp_path, monkeypatch):
     path = tmp_path / "automatic.sqlite3"
     db = OrderDB(path)
-    db.set("next_run", (now() - timedelta(minutes=2)).isoformat())
+    fixed = datetime(2026, 9, 17, 18, 0, 5, tzinfo=KST)
+    monkeypatch.setattr("korea_ecommerce_mcp.orders_web.now", lambda: fixed)
+    db.set("schedule_version", SCHEDULE_VERSION)
+    db.set("next_run", fixed.replace(second=0).isoformat())
     completed = threading.Event()
 
     class ScheduledAPI(FakeAPI):
@@ -278,6 +285,7 @@ def test_due_schedule_collects_without_browser_request(tmp_path):
         assert completed.wait(3)
         assert len(db.orders()) == 1
         assert db.get("last_success")
+        assert db.get("next_run") == "2026-09-19T18:00:00+09:00"
 
 
 def test_blank_or_oversized_excel_is_rejected(db):
@@ -285,3 +293,43 @@ def test_blank_or_oversized_excel_is_rejected(db):
         parse_invoices(workbook_bytes([], []), [], db)
     with pytest.raises(ValueError, match="정상적인"):
         parse_invoices(b"not a workbook", [], db)
+
+
+@pytest.mark.parametrize("day", [14, 15, 16, 17, 19, 20])
+def test_collection_runs_on_saturday_through_thursday(day):
+    before = datetime(2026, 9, day, 17, 59, tzinfo=KST)
+    due = next_collection(before)
+    assert due.day == day and due.hour == 18
+    assert is_collection_slot(due + timedelta(seconds=5), due)
+    assert not is_collection_slot(due + timedelta(minutes=1), due)
+
+
+def test_friday_and_missed_slots_are_excluded():
+    thursday = datetime(2026, 9, 17, 18, tzinfo=KST)
+    friday = datetime(2026, 9, 18, 18, tzinfo=KST)
+    assert next_collection(thursday) == datetime(2026, 9, 19, 18, tzinfo=KST)
+    assert next_collection(friday) == datetime(2026, 9, 19, 18, tzinfo=KST)
+    assert not is_collection_slot(friday, friday)
+    assert not is_collection_slot(friday, thursday)
+
+
+@pytest.mark.asyncio
+async def test_manual_collection_keeps_fixed_schedule(db):
+    due = "2026-09-19T18:00:00+09:00"
+    db.set("next_run", due)
+    service = OrderService(db, settings, FakeAPI)
+    await service.collect()
+    assert db.get("next_run") == due
+
+
+def test_existing_hourly_schedule_is_migrated(tmp_path, monkeypatch):
+    path = tmp_path / "migration.sqlite3"
+    db = OrderDB(path)
+    db.set("interval", 60)
+    db.set("next_run", "2026-09-18T19:00:00+09:00")
+    monkeypatch.setattr(
+        "korea_ecommerce_mcp.orders_web.now", lambda: datetime(2026, 9, 18, 12, tzinfo=KST)
+    )
+    app = create_app(path, settings, FakeAPI, scheduler=False)
+    assert app.state.db.get("next_run") == "2026-09-19T18:00:00+09:00"
+    assert app.state.db.get("schedule_version") == SCHEDULE_VERSION

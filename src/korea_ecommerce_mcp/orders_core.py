@@ -484,9 +484,6 @@ class OrderService:
                 self.db.event("error", message)
                 raise ValueError(message) from exc
             finally:
-                self.db.set(
-                    "next_run", (now() + timedelta(minutes=self.db.get("interval", 60))).isoformat()
-                )
                 self.busy = ""
                 if api:
                     await api.close()
